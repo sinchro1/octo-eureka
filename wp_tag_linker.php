@@ -3,7 +3,7 @@
  * Plugin Name: WP Tag Linker
  * Description: Automatically links words in post content to existing tags (max 5 per post) with customizable styles.
  * Version: 1.3
- * Author: Your Name
+ * Author: sinchro
  */
 
 if (!defined('ABSPATH')) {
