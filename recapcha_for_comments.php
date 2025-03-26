@@ -3,7 +3,7 @@
  * Plugin Name: reCAPTCHA for Comments
  * Description: Добавляет Google reCAPTCHA v3 в форму комментариев WordPress.
  * Version: 1.1
- * Author: Your Name
+ * Author: sinchro
  */
 
 if (!defined('ABSPATH')) {
