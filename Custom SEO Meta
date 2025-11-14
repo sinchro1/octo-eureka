@@ -1,0 +1,123 @@
+<?php
+/*
+Plugin Name: Custom SEO Meta
+Description: Позволяет задавать SEO title и description для постов, а также обновлять их через REST API.
+Version: 1.1
+Author: ChatGPT
+*/
+
+if (!defined('ABSPATH')) exit;
+
+// Регистрируем мета-поля
+function csm_register_meta_fields() {
+    register_post_meta('post', 'seo_title', array(
+        'show_in_rest' => true,
+        'single' => true,
+        'type' => 'string',
+        'auth_callback' => 'csm_can_edit_posts'
+    ));
+
+    register_post_meta('post', 'seo_description', array(
+        'show_in_rest' => true,
+        'single' => true,
+        'type' => 'string',
+        'auth_callback' => 'csm_can_edit_posts'
+    ));
+}
+add_action('init', 'csm_register_meta_fields');
+
+function csm_can_edit_posts() {
+    return current_user_can('edit_posts');
+}
+
+// Добавляем мета-блок в редактор
+function csm_add_meta_box() {
+    add_meta_box(
+        'csm_seo_meta_box',
+        'Custom SEO Meta',
+        'csm_meta_box_callback',
+        'post',
+        'normal',
+        'default'
+    );
+}
+add_action('add_meta_boxes', 'csm_add_meta_box');
+
+function csm_meta_box_callback($post) {
+    $seo_title = get_post_meta($post->ID, 'seo_title', true);
+    $seo_description = get_post_meta($post->ID, 'seo_description', true);
+
+    echo '<label for="csm_seo_title">SEO Title:</label>';
+    echo '<input type="text" id="csm_seo_title" name="csm_seo_title" value="' . esc_attr($seo_title) . '" style="width:100%;"><br><br>';
+    echo '<label for="csm_seo_description">SEO Description:</label>';
+    echo '<textarea id="csm_seo_description" name="csm_seo_description" style="width:100%;">' . esc_textarea($seo_description) . '</textarea>';
+}
+
+function csm_save_meta_fields($post_id) {
+    if (isset($_POST['csm_seo_title'])) {
+        update_post_meta($post_id, 'seo_title', sanitize_text_field($_POST['csm_seo_title']));
+    }
+    if (isset($_POST['csm_seo_description'])) {
+        update_post_meta($post_id, 'seo_description', sanitize_text_field($_POST['csm_seo_description']));
+    }
+}
+add_action('save_post', 'csm_save_meta_fields');
+
+// REST API endpoint
+function csm_register_rest_route() {
+    register_rest_route('custom-seo/v1', '/meta/(?P<id>\\d+)', array(
+        'methods' => array('POST', 'PUT'),
+        'callback' => 'csm_update_seo_meta',
+        'permission_callback' => 'csm_can_edit_posts',
+        'args' => array(
+            'seo_title' => array(
+                'required' => false,
+                'type' => 'string',
+            ),
+            'seo_description' => array(
+                'required' => false,
+                'type' => 'string',
+            )
+        )
+    ));
+}
+add_action('rest_api_init', 'csm_register_rest_route');
+
+function csm_update_seo_meta($request) {
+    $post_id = $request['id'];
+    if (!get_post($post_id)) {
+        return new WP_Error('post_not_found', 'Пост не найден', array('status' => 404));
+    }
+
+    if (!is_null($request->get_param('seo_title'))) {
+        update_post_meta($post_id, 'seo_title', sanitize_text_field($request['seo_title']));
+    }
+
+    if (!is_null($request->get_param('seo_description'))) {
+        update_post_meta($post_id, 'seo_description', sanitize_text_field($request['seo_description']));
+    }
+
+    return new WP_REST_Response(array(
+        'success' => true,
+        'message' => 'SEO мета-данные обновлены'
+    ), 200);
+}
+
+// Вывод SEO мета в <head>
+function csm_render_seo_meta() {
+    if (is_singular('post')) {
+        global $post;
+
+        $seo_title = get_post_meta($post->ID, 'seo_title', true);
+        $seo_description = get_post_meta($post->ID, 'seo_description', true);
+
+        if (!empty($seo_title)) {
+            echo '<title>' . esc_html($seo_title) . "</title>\n";
+        }
+
+        if (!empty($seo_description)) {
+            echo '<meta name="description" content="' . esc_attr($seo_description) . "\">\n";
+        }
+    }
+}
+add_action('wp_head', 'csm_render_seo_meta');
